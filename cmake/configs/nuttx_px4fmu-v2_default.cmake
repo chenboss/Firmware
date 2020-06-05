@@ -99,6 +99,7 @@ set(config_module_list
 	#modules/uavcan
 	modules/land_detector
 	modules/camera_feedback
+	modules/lidar
 
 	#
 	# Estimation modules
