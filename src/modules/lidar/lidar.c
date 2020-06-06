@@ -176,9 +176,10 @@ int lidar_thread_main(int argc, char *argv[])
     char FrameHead = 0x0A;
 
     char data='0';
-    char buffer[5] = {0};   //buffer cache 
+    // char buffer[5] = {0};   //buffer cache 
     double result1 = 0.0;
     double lidarResult = 0.0;
+    double last_lidarResult = 0;
 
 
 
@@ -200,34 +201,47 @@ int lidar_thread_main(int argc, char *argv[])
     memset(&lidardate, 0 , sizeof(lidardate));
     orb_advert_t lidar_pub = orb_advertise(ORB_ID(lidar), &lidardate);//公告这个主题
     int data_point=0;  //count
+
     
     while(!thread_should_exit)
     {
         read(uart_read,&data,1);
         if (data == FrameHead)
         {   
+            char buffer[5] = {0};   //create new buffer cache each time receive frame
+            int k=0;
+            data_point = 0;
             for(int i = 0;i <5;++i)
             {
                 read(uart_read,&data,1);
                 if(data == 0x2E)
                 {
                     data_point=i;
-                    i -= 1;
+                    // i -= 1;
                     continue;
                 }
-                buffer[i]=data;
+                buffer[k]=data;
+                k = k + 1;
             }
-            result1 = 0;   //reset 0 at each frame
-            double tmp_res = 0;
-            for(int i=0;i<4;++i)
+            if(data_point ==1 || data_point == 2)
             {
-                tmp_res =(buffer[i]-48)*pow(10,(2-i+data_point));
-                result1 += tmp_res;
+                result1 = 0;   //reset 0 at each frame
+                double tmp_res = 0;
+                for(int i=0;i<4;i++)
+                {
+                    tmp_res =(buffer[i]-48)*pow(10,(2-i+data_point));
+                    result1 += tmp_res;
+                }
+                lidarResult = result1/1000.0;
+                if (lidarResult <0 || lidarResult>40)
+                {
+                    lidarResult = last_lidarResult;
+                }
+                last_lidarResult = lidarResult;
+                PX4_INFO("this is a test about lidat measurements At Jun 06  %0.2f m\n",lidarResult);
             }
-            lidarResult = result1/1000.0;
-            PX4_INFO("this is a test about lidat measurements data by cw:    %0.3fm\n",lidarResult);
+
         }
-        
         lidardate.lidar_result = lidarResult;
         orb_publish(ORB_ID(lidar), lidar_pub, &lidardate);
     }
